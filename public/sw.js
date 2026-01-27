@@ -175,12 +175,13 @@ async function processOfflineQueue() {
 
     console.log(`[Service Worker] Processing ${mutations.length} mutations`);
 
-    // Get API base URL from environment or default
+    // Get API base URL and key from IndexedDB config store
     const apiBase = 'https://ups-tracker-api.invictustitan2.workers.dev/api';
+    const apiKey = await getApiKeyFromConfig(db);
 
     for (const mutation of mutations) {
       try {
-        await executeMutation(mutation, apiBase);
+        await executeMutation(mutation, apiBase, apiKey);
         await deleteMutation(db, mutation.id);
         console.log(`[Service Worker] Processed mutation ${mutation.id}`);
       } catch (error) {
@@ -193,6 +194,24 @@ async function processOfflineQueue() {
   } catch (error) {
     console.error('[Service Worker] Error processing offline queue:', error);
   }
+}
+
+// Get API key from IndexedDB config (stored by main app)
+async function getApiKeyFromConfig(db) {
+  try {
+    if (db.objectStoreNames.contains('config')) {
+      return new Promise((resolve) => {
+        const tx = db.transaction('config', 'readonly');
+        const store = tx.objectStore('config');
+        const request = store.get('apiKey');
+        request.onsuccess = () => resolve(request.result?.value || '');
+        request.onerror = () => resolve('');
+      });
+    }
+  } catch {
+    // Config store may not exist yet
+  }
+  return '';
 }
 
 // Open offline IndexedDB
@@ -217,7 +236,7 @@ async function getPendingMutations(db) {
 }
 
 // Execute a single mutation
-async function executeMutation(mutation, apiBase) {
+async function executeMutation(mutation, apiBase, apiKey) {
   const { type, data } = mutation;
   let url, method, body;
 
@@ -250,11 +269,17 @@ async function executeMutation(mutation, apiBase) {
       throw new Error(`Unknown mutation type: ${type}`);
   }
 
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (apiKey) {
+    headers['X-API-Key'] = apiKey;
+  }
+
   const response = await fetch(url, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     body,
   });
 

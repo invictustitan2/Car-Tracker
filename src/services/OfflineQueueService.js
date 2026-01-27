@@ -5,8 +5,9 @@
  */
 
 const DB_NAME = 'ups-tracker-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Bumped for config store
 const QUEUE_STORE = 'mutation-queue';
+const CONFIG_STORE = 'config';
 
 /**
  * Initialize IndexedDB for offline queue
@@ -31,7 +32,27 @@ function initDB() {
         store.createIndex('type', 'type', { unique: false });
         store.createIndex('status', 'status', { unique: false });
       }
+      
+      // Create config store for API key etc.
+      if (!db.objectStoreNames.contains(CONFIG_STORE)) {
+        db.createObjectStore(CONFIG_STORE, { keyPath: 'key' });
+      }
     };
+  });
+}
+
+/**
+ * Store API key for service worker access
+ */
+async function storeApiKey(apiKey) {
+  const db = await initDB();
+  const tx = db.transaction(CONFIG_STORE, 'readwrite');
+  const store = tx.objectStore(CONFIG_STORE);
+  
+  return new Promise((resolve, reject) => {
+    const request = store.put({ key: 'apiKey', value: apiKey });
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
   });
 }
 
@@ -343,5 +364,5 @@ class OfflineQueueManager {
 }
 
 export default OfflineQueueManager;
-export { completeMutation, getPendingMutations, processQueue, queueMutation, registerBackgroundSync };
+export { completeMutation, getPendingMutations, processQueue, queueMutation, registerBackgroundSync, storeApiKey };
 

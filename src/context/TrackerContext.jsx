@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { auditApi, carsApi, sessionsApi, shiftsApi, syncApi, usageApi } from '../api/apiClient';
-import OfflineQueueManager from '../services/OfflineQueueService';
+import OfflineQueueManager, { storeApiKey } from '../services/OfflineQueueService';
 import { wsService } from '../services/WebSocketService';
 import { loadState } from '../storage/trackerStorage';
 
@@ -30,6 +30,12 @@ export function TrackerProvider({ children }) {
   const offlineQueueManager = useMemo(() => new OfflineQueueManager(fullApiClient), []);
 
   useEffect(() => {
+    // Store API key in IndexedDB for service worker access
+    const apiKey = import.meta.env.VITE_API_KEY || '';
+    if (apiKey) {
+      storeApiKey(apiKey).catch(err => console.warn('Failed to store API key for offline sync:', err));
+    }
+    
     // Subscribe to queue changes
     const unsubscribe = offlineQueueManager.subscribe((count) => {
       setQueueStatus(prev => ({ ...prev, pending: count }));

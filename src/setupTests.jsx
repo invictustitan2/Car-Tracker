@@ -200,5 +200,11 @@ vi.mock('./services/OfflineQueueService.js', () => {
         this.sync = vi.fn().mockResolvedValue({ processed: 0, failed: 0 });
       }
     },
+    storeApiKey: vi.fn().mockResolvedValue(),
+    queueMutation: vi.fn().mockResolvedValue(1),
+    getPendingMutations: vi.fn().mockResolvedValue([]),
+    completeMutation: vi.fn().mockResolvedValue(),
+    processQueue: vi.fn().mockResolvedValue({ processed: 0, failed: 0 }),
+    registerBackgroundSync: vi.fn().mockResolvedValue(true),
   };
 });
