@@ -810,7 +810,7 @@ async function handleSessionsRequest(request, env, corsHeaders) {
     
     await env.DB.prepare(`
       UPDATE sessions 
-      SET last_active_at = datetime('now')
+      SET last_heartbeat = datetime('now')
       WHERE id = ?
     `).bind(sessionId).run();
 
@@ -839,7 +839,7 @@ async function handleSessionsRequest(request, env, corsHeaders) {
       SELECT COUNT(*) as count
       FROM sessions
       WHERE ended_at IS NULL 
-      AND last_active_at > datetime('now', '-5 minutes')
+      AND last_heartbeat > datetime('now', '-5 minutes')
     `).all();
 
     return jsonResponse({ 
