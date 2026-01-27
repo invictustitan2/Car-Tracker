@@ -33,6 +33,7 @@ jobs:
         run: npm run build
         env:
           VITE_API_URL: https://ups-tracker-api.invictustitan2.workers.dev
+          VITE_API_KEY: ${{ secrets.VITE_API_KEY }}
           VITE_USER_ID: anonymous
           VITE_SYNC_INTERVAL: 5000
           VITE_ENABLE_SYNC: true
