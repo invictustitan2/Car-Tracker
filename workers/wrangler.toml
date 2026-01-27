@@ -13,7 +13,7 @@ migrations_dir = "../migrations"
 # KV Namespace for rate limiting
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "00fccddc227543e890ce3f3dbf5912f2"
+id = "503f55220418417489c52a9d8c4cd395"
 
 # Durable Objects binding for WebSocket connections
 [[durable_objects.bindings]]
