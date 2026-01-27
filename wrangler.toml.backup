@@ -1,0 +1,25 @@
+name = "ups-tracker"
+pages_build_output_dir = "dist"
+
+# Worker configuration for API endpoints
+[env.production]
+name = "ups-tracker-api"
+main = "workers/api.js"
+compatibility_date = "2025-11-23"
+
+# D1 Database binding
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "ups-tracker-db"
+database_id = "" # Will be populated after creating database
+
+# Development environment
+[env.development]
+name = "ups-tracker-api-dev"
+main = "workers/api.js"
+compatibility_date = "2025-11-23"
+
+[[env.development.d1_databases]]
+binding = "DB"
+database_name = "ups-tracker-db-dev"
+database_id = "" # Will be populated after creating dev database

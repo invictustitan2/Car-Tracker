@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline - UPS Package Car Tracker</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #351C15 0%, #654321 100%);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 500px;
+    }
+
+    .icon {
+      font-size: 120px;
+      margin-bottom: 20px;
+      opacity: 0.8;
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+
+    p {
+      font-size: 18px;
+      line-height: 1.6;
+      opacity: 0.9;
+      margin-bottom: 32px;
+    }
+
+    .button {
+      display: inline-block;
+      background: white;
+      color: #351C15;
+      padding: 14px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 16px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .status {
+      margin-top: 24px;
+      font-size: 14px;
+      opacity: 0.7;
+    }
+
+    .pulse {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff6b6b;
+      margin-right: 8px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="icon">📡</div>
+    <h1>You're Offline</h1>
+    <p>
+      It looks like you've lost your internet connection.
+      The UPS Package Car Tracker requires an active connection to sync data.
+    </p>
+    <a href="/" class="button" onclick="window.location.reload(); return false;">
+      Try Again
+    </a>
+    <div class="status">
+      <span class="pulse"></span>
+      <span id="status-text">No connection</span>
+    </div>
+  </div>
+
+  <script>
+    // Monitor online status
+    function updateStatus() {
+      const statusText = document.getElementById('status-text');
+      if (navigator.onLine) {
+        statusText.textContent = 'Back online! Redirecting...';
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1000);
+      } else {
+        statusText.textContent = 'No connection';
+      }
+    }
+
+    window.addEventListener('online', updateStatus);
+    window.addEventListener('offline', updateStatus);
+
+    // Check status on load
+    updateStatus();
+
+    // Auto-retry every 5 seconds
+    setInterval(() => {
+      if (navigator.onLine) {
+        window.location.href = '/';
+      }
+    }, 5000);
+  </script>
+</body>
+
+</html>

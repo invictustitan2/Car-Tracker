@@ -1,0 +1,36 @@
+name = "ups-tracker-api"
+main = "api.js"
+compatibility_date = "2025-11-23"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "ups-tracker-db"
+database_id = "793d1239-a8d2-4d1a-9ef7-ff3719c19f4d"
+migrations_dir = "../migrations"
+
+# KV Namespace for rate limiting
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "00fccddc227543e890ce3f3dbf5912f2"
+
+# Durable Objects binding for WebSocket connections
+[[durable_objects.bindings]]
+name = "TRACKER_WS"
+class_name = "TrackerWebSocket"
+script_name = "ups-tracker-api"
+
+# Durable Objects migrations
+[[migrations]]
+tag = "v1"
+new_classes = ["TrackerWebSocket"]
+
+# Environment variables
+[vars]
+ENVIRONMENT = "production"
+ALLOWED_ORIGINS = "https://ups-tracker.pages.dev,https://main.ups-tracker.pages.dev,https://tracker.aperion.cc"
+
+# Cron Triggers - Check for late cars every 15 minutes
+[triggers]
+crons = ["*/15 * * * *"]

@@ -1,0 +1,67 @@
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  deploy:
+    name: Deploy to tracker.aperion.cc
+    runs-on: ubuntu-latest
+    
+    # Only deploy after CI passes
+    needs: []
+    
+    outputs:
+      preview-url: ${{ steps.deploy.outputs.url }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.x'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build production bundle
+        run: npm run build
+        env:
+          VITE_API_URL: https://ups-tracker-api.invictustitan2.workers.dev
+          VITE_USER_ID: anonymous
+          VITE_SYNC_INTERVAL: 5000
+          VITE_ENABLE_SYNC: true
+      
+      - name: Deploy to Cloudflare Pages
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=ups-tracker --branch=main
+      
+      - name: Comment deployment URL
+        if: github.event_name == 'push'
+        run: |
+          echo "🚀 Deployed to https://tracker.aperion.cc"
+          echo "📦 Preview: https://main.ups-tracker.pages.dev"
+
+  smoke-test:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+      - run: npx playwright install chromium
+      - name: Run Smoke Tests
+        run: npx playwright test e2e/production-smoke.spec.js
+        env:
+          BASE_URL: https://tracker.aperion.cc
+          TEST_ENV: production

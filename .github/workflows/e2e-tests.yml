@@ -1,0 +1,67 @@
+name: E2E Tests (Isolated)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  e2e-tests:
+    name: Run Playwright E2E Tests (Local-in-CI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Setup Test Environment
+        run: |
+          # Use fixed API key for tests to match hardcoded value in test files
+          TEST_API_KEY="test-api-key"
+          echo "Using Test API Key: ${TEST_API_KEY}"
+          
+          # Create .dev.vars for Worker (backend)
+          # This allows wrangler to pick up the secret
+          echo "API_SECRET_KEY=${TEST_API_KEY}" > workers/.dev.vars
+          echo "DISABLE_RATE_LIMIT=true" >> workers/.dev.vars
+          
+          # Export for Vite/Playwright (frontend)
+          # Writing to .env ensures Vite picks it up reliably
+          echo "VITE_API_KEY=${TEST_API_KEY}" > .env
+          echo "VITE_API_URL=http://localhost:8787" >> .env
+          
+          # Also export to GITHUB_ENV for good measure
+          echo "VITE_API_KEY=${TEST_API_KEY}" >> $GITHUB_ENV
+          echo "VITE_API_URL=http://localhost:8787" >> $GITHUB_ENV
+
+      - name: Setup Local Database
+        run: npm run db:setup:local
+
+      - name: Run E2E tests (Local Stack)
+        run: npm run test:e2e
+        env:
+          CI: true
+          # No BASE_URL needed, Playwright launches local server via webServer
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
