@@ -24,8 +24,8 @@ function normalizeValue(value) {
  * @returns {object} Car object matching packageCarSchema
  */
 function mapRowToCar(row) {
-  // Support various header name variations
-  const id = row.id || row.car || row.carnumber || row.car_id || row.packagecar || '';
+  // Support various header name variations (including spaces, normalized by normalizeHeader)
+  const id = row.id || row['car id'] || row.car || row.carnumber || row.car_id || row.packagecar || '';
   const location = row.location || row.lane || row.dock || '';
   const arrived = row.arrived || row.status || '';
   const late = row.late || '';

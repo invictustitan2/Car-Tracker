@@ -27,7 +27,7 @@ import { loadState, saveState } from './storage/trackerStorage';
 import { USAGE_EVENTS } from './usage/usageCounters.js';
 import { parseCsvContent } from './utils/csvParser.js';
 
-const LOCATIONS = ["Yard", "100", "200", "300", "400", "500", "600", "Shop"];
+const LOCATIONS = ["Yard", "On Site", "100", "200", "300", "400", "500", "600", "Shop"];
 const LOCATION_FILTERS = ['all', ...LOCATIONS];
 
 const VIEW_MODES = {
@@ -114,6 +114,7 @@ export default function PackageCarTracker({ theme, onToggleTheme }) {
     setUserId,
     activeUsers,
     wsConnected,
+    dataUpdatedAt,
     addCar,
     updateCar,
     deleteCar,
@@ -512,7 +513,11 @@ export default function PackageCarTracker({ theme, onToggleTheme }) {
   };
 
   const handleRemoveCar = useCallback(async (id) => {
-    if (window.confirm(`Remove car ${id} from the fleet list?`)) {
+    const confirmMsg = currentShift 
+      ? `⚠️ Shift is active!\n\nRemove car ${id} from the fleet? This takes effect immediately.`
+      : `Remove car ${id} from the fleet list?`;
+    
+    if (window.confirm(confirmMsg)) {
       trackUsage(USAGE_EVENTS.CAR_REMOVED);
 
       try {
@@ -521,7 +526,7 @@ export default function PackageCarTracker({ theme, onToggleTheme }) {
         console.error('Failed to sync car removal:', error);
       }
     }
-  }, [deleteCar, trackUsage, userId]);
+  }, [currentShift, deleteCar, trackUsage, userId]);
 
   const handleViewHistory = useCallback((carId) => {
     setSelectedCarForAudit(carId);
@@ -614,22 +619,30 @@ export default function PackageCarTracker({ theme, onToggleTheme }) {
     if (typeof window === 'undefined') return;
     trackUsage(USAGE_EVENTS.CSV_EXPORT);
     
+    // Helper to escape CSV values containing commas, quotes, or newlines
+    const escapeCsvValue = (value) => {
+      const str = String(value ?? '');
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+    
     // Enhanced CSV with timestamps for supervision reports
     const header = 'Car ID,Location,Status,Arrived,Arrived At,Empty,Emptied At,Late,Notes,Last Updated';
     const rows = cars.map(car => {
       const status = car.empty ? 'Empty' : car.arrived ? 'Arrived' : car.late ? 'Late' : 'Pending';
-      const escapedNotes = (car.notes || '').replace(/"/g, '""');
       return [
         car.id,
         car.location || '',
         status,
         car.arrived ? 'Yes' : 'No',
-        formatDateTimeCDT(car.arrivedAt),
+        escapeCsvValue(formatDateTimeCDT(car.arrivedAt)),
         car.empty ? 'Yes' : 'No',
-        formatDateTimeCDT(car.emptyAt),
+        escapeCsvValue(formatDateTimeCDT(car.emptyAt)),
         car.late ? 'Yes' : 'No',
-        `"${escapedNotes}"`,
-        formatDateTimeCDT(car.lastUpdatedAt)
+        escapeCsvValue(car.notes || ''),
+        escapeCsvValue(formatDateTimeCDT(car.lastUpdatedAt))
       ].join(',');
     });
     
@@ -801,19 +814,50 @@ export default function PackageCarTracker({ theme, onToggleTheme }) {
             <div className="bg-white dark:bg-slate-900 p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 space-y-2">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Shift Summary</h3>
-                {isSyncEnabled() && (
-                  <div className="flex items-center gap-1.5">
-                    <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`} />
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      {isSyncing ? 'Syncing...' : 'Synced'}
+              </div>
+              
+              {/* Shift State Indicator */}
+              <div className="flex items-center gap-2 text-xs mb-2">
+                {currentShift ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      Shift: In Progress
                     </span>
-                  </div>
+                    {currentShift.startedAt && (
+                      <span className="text-slate-400">
+                        since {formatTimeCDT(currentShift.startedAt)}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-slate-400 dark:text-slate-500">
+                    No active shift
+                  </span>
                 )}
               </div>
+              
               <LaneSummary title="Arrived" count={stats.arrived} total={stats.total} variant="info" />
               <LaneSummary title="Pending" count={stats.pending} total={stats.total} variant="warning" />
               <LaneSummary title="Completed" count={stats.empty} total={stats.total} variant="success" />
               <LaneSummary title="Late" count={stats.late} total={stats.total} variant="error" />
+              
+              {/* Sync Status Indicator */}
+              {isSyncEnabled() && (
+                <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isSyncing ? 'bg-amber-500 animate-pulse' : 'bg-green-500'}`} />
+                    <span>
+                      {isSyncing ? 'Syncing...' : (
+                        <>
+                          Synced · Auto-saved
+                          {dataUpdatedAt ? ` · ${formatTimeCDT(new Date(dataUpdatedAt).toISOString())}` : ''}
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Filters */}
@@ -865,6 +909,9 @@ export default function PackageCarTracker({ theme, onToggleTheme }) {
               >
                 <RotateCcw size={14} /> {currentShift ? 'End Shift & Reset' : 'Reset Board'}
               </button>
+              <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-1">
+                Clears statuses · Keeps fleet
+              </p>
             </div>
           </div>
 
@@ -933,7 +980,13 @@ export default function PackageCarTracker({ theme, onToggleTheme }) {
                     />
                     <button
                       onClick={handleImportCsvClick}
-                      className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700"
+                      disabled={!!currentShift}
+                      title={currentShift ? 'Bulk imports disabled during active shift' : 'Import cars from CSV'}
+                      className={`px-3 py-2 border rounded-md text-sm font-medium ${
+                        currentShift 
+                          ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                      }`}
                     >
                       Import CSV
                     </button>
@@ -952,6 +1005,12 @@ export default function PackageCarTracker({ theme, onToggleTheme }) {
                     </button>
                   </div>
                 </div>
+                {currentShift && (
+                  <div className="mt-3 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    Shift is active — changes apply immediately
+                  </div>
+                )}
               </div>
             )}
 
@@ -1053,6 +1112,12 @@ export default function PackageCarTracker({ theme, onToggleTheme }) {
             </div>
 
             <div className="p-6 overflow-y-auto">
+              {currentShift && (
+                <div className="mb-4 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse flex-shrink-0" />
+                  Shift is active — fleet changes apply immediately
+                </div>
+              )}
               <form onSubmit={handleAddCar} className="flex gap-2 mb-6">
                 <input
                   type="number"

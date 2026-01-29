@@ -89,6 +89,7 @@ describe('csvParser', () => {
         { carnumber: '123' },
         { car_id: '123' },
         { packagecar: '123' },
+        { 'car id': '123' }, // Support export format with space
       ];
 
       testCases.forEach((row, idx) => {

@@ -50,7 +50,7 @@ export function TrackerProvider({ children }) {
   }, [offlineQueueManager]);
 
   // 1. Robust Data Fetching with React Query
-  const { data: cars = [], isLoading, error } = useQuery({
+  const { data: cars = [], isLoading, error, dataUpdatedAt } = useQuery({
     queryKey: ['cars'],
     queryFn: async () => {
       const response = await carsApi.getAll();
@@ -233,6 +233,7 @@ export function TrackerProvider({ children }) {
     activeUsers,
     wsConnected,
     queueStatus,
+    dataUpdatedAt,
     addCar: addCarMutation.mutateAsync,
     updateCar: updateCarMutation.mutateAsync,
     deleteCar: deleteCarMutation.mutateAsync,

@@ -312,8 +312,8 @@ describe('Fleet management tools', () => {
 
       expect(blobSpy).toHaveBeenCalledTimes(1);
       const blobInput = blobSpy.mock.calls[0][0][0];
-      expect(blobInput.startsWith('id,location,arrived,empty,late')).toBe(true);
-      expect(blobInput).toContain('111111,Yard,false,false,false');
+      expect(blobInput.startsWith('Car ID,Location,Status,Arrived,Arrived At,Empty,Emptied At,Late,Notes,Last Updated')).toBe(true);
+      expect(blobInput).toContain('111111,Yard,Pending,No,');
     } finally {
       globalThis.Blob = OriginalBlob;
       clickSpy.mockRestore();
