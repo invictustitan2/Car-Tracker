@@ -35,6 +35,41 @@ const VIEW_MODES = {
   board: 'Board View'
 };
 
+// Format date to CDT timezone
+const formatTimeCDT = (dateString) => {
+  if (!dateString) return '';
+  const utcDateStr = dateString.includes('Z') || dateString.includes('+') 
+    ? dateString 
+    : dateString.replace(' ', 'T') + 'Z';
+  const date = new Date(utcDateStr);
+  if (isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('en-US', {
+    timeZone: 'America/Chicago',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
+// Format full datetime to CDT timezone
+const formatDateTimeCDT = (dateString) => {
+  if (!dateString) return '';
+  const utcDateStr = dateString.includes('Z') || dateString.includes('+') 
+    ? dateString 
+    : dateString.replace(' ', 'T') + 'Z';
+  const date = new Date(utcDateStr);
+  if (isNaN(date.getTime())) return '';
+  return date.toLocaleString('en-US', {
+    timeZone: 'America/Chicago',
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
 // Helper to check if sync should be enabled
 // Allows E2E tests to disable sync via localStorage
 const isSyncEnabled = () => {
@@ -578,14 +613,32 @@ export default function PackageCarTracker({ theme, onToggleTheme }) {
   const handleExportCsv = useCallback(() => {
     if (typeof window === 'undefined') return;
     trackUsage(USAGE_EVENTS.CSV_EXPORT);
-    const header = 'id,location,arrived,empty,late';
-    const rows = cars.map(car => [car.id, car.location, car.arrived, car.empty, car.late].join(','));
+    
+    // Enhanced CSV with timestamps for supervision reports
+    const header = 'Car ID,Location,Status,Arrived,Arrived At,Empty,Emptied At,Late,Notes,Last Updated';
+    const rows = cars.map(car => {
+      const status = car.empty ? 'Empty' : car.arrived ? 'Arrived' : car.late ? 'Late' : 'Pending';
+      const escapedNotes = (car.notes || '').replace(/"/g, '""');
+      return [
+        car.id,
+        car.location || '',
+        status,
+        car.arrived ? 'Yes' : 'No',
+        formatDateTimeCDT(car.arrivedAt),
+        car.empty ? 'Yes' : 'No',
+        formatDateTimeCDT(car.emptyAt),
+        car.late ? 'Yes' : 'No',
+        `"${escapedNotes}"`,
+        formatDateTimeCDT(car.lastUpdatedAt)
+      ].join(',');
+    });
+    
     const csvContent = [header, ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `cars-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `ups-car-report-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -729,7 +782,7 @@ export default function PackageCarTracker({ theme, onToggleTheme }) {
                   <div className="flex items-center gap-2 text-sm">
                     <div className="w-2 h-2 rounded-full bg-green-500" />
                     <span className="text-slate-700 dark:text-slate-300">
-                      Shift started {new Date(currentShift.startedAt).toLocaleTimeString()}
+                      Shift started {formatTimeCDT(currentShift.startedAt)}
                     </span>
                   </div>
                 )}

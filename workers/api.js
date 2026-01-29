@@ -281,6 +281,8 @@ async function handleCarsRequest(request, env, corsHeaders) {
       late: Boolean(row.late),
       empty: Boolean(row.empty),
       notes: row.notes,
+      arrivedAt: row.arrived_at,
+      emptyAt: row.empty_at,
       lastUpdatedAt: row.last_updated_at,
       lastUpdatedBy: row.last_updated_by,
       version: row.version,
@@ -312,6 +314,7 @@ async function handleCarsRequest(request, env, corsHeaders) {
     await env.DB.prepare(`
       UPDATE cars 
       SET arrived = 0, late = 0, empty = 0, 
+          arrived_at = NULL, empty_at = NULL,
           last_updated_at = datetime('now'), 
           version = version + 1
     `).run();
@@ -476,6 +479,12 @@ async function handleCarsRequest(request, env, corsHeaders) {
     if (arrived !== undefined && Boolean(arrived) !== Boolean(current.arrived)) {
       updates.push('arrived = ?');
       values.push(arrived ? 1 : 0);
+      // Set arrived_at timestamp when marking as arrived, clear when unmarking
+      if (arrived) {
+        updates.push("arrived_at = datetime('now')");
+      } else {
+        updates.push('arrived_at = NULL');
+      }
       auditLogs.push({ field: 'arrived', oldValue: String(Boolean(current.arrived)), newValue: String(Boolean(arrived)) });
     }
 
@@ -488,6 +497,12 @@ async function handleCarsRequest(request, env, corsHeaders) {
     if (empty !== undefined && Boolean(empty) !== Boolean(current.empty)) {
       updates.push('empty = ?');
       values.push(empty ? 1 : 0);
+      // Set empty_at timestamp when marking as empty, clear when unmarking
+      if (empty) {
+        updates.push("empty_at = datetime('now')");
+      } else {
+        updates.push('empty_at = NULL');
+      }
       auditLogs.push({ field: 'empty', oldValue: String(Boolean(current.empty)), newValue: String(Boolean(empty)) });
     }
 
@@ -545,6 +560,8 @@ async function handleCarsRequest(request, env, corsHeaders) {
         late: Boolean(updated.late),
         empty: Boolean(updated.empty),
         notes: updated.notes,
+        arrivedAt: updated.arrived_at,
+        emptyAt: updated.empty_at,
         lastUpdatedAt: updated.last_updated_at,
         lastUpdatedBy: updated.last_updated_by,
         version: updated.version,
@@ -751,13 +768,13 @@ async function handleAuditRequest(request, env, corsHeaders) {
       stmt = env.DB.prepare(`
         SELECT * FROM audit_log 
         WHERE car_id = ? 
-        ORDER BY changed_at DESC 
+        ORDER BY timestamp DESC 
         LIMIT ?
       `).bind(carId, limit);
     } else {
       stmt = env.DB.prepare(`
         SELECT * FROM audit_log 
-        ORDER BY changed_at DESC 
+        ORDER BY timestamp DESC 
         LIMIT ?
       `).bind(limit);
     }

@@ -111,7 +111,16 @@ export default function AuditLogDrawer({ isOpen, onClose, carId = null }) {
  */
 function AuditLogEntry({ log }) {
   const formatDate = (dateStr) => {
-    const date = new Date(dateStr);
+    if (!dateStr) return 'Unknown';
+    
+    // SQLite datetime is in UTC but without 'Z' suffix - append it
+    const utcDateStr = dateStr.includes('Z') || dateStr.includes('+') 
+      ? dateStr 
+      : dateStr.replace(' ', 'T') + 'Z';
+    
+    const date = new Date(utcDateStr);
+    if (isNaN(date.getTime())) return 'Invalid date';
+    
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
@@ -120,7 +129,15 @@ function AuditLogEntry({ log }) {
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
 
-    return date.toLocaleString();
+    // Format in user's local timezone (CDT for Central)
+    return date.toLocaleString('en-US', { 
+      timeZone: 'America/Chicago',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
   const getActionColor = (action) => {
@@ -162,7 +179,7 @@ function AuditLogEntry({ log }) {
         </div>
         <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
           <Clock size={12} />
-          <time>{formatDate(log.changed_at)}</time>
+          <time>{formatDate(log.timestamp)}</time>
         </div>
       </div>
 

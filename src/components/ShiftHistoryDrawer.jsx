@@ -34,8 +34,14 @@ export default function ShiftHistoryDrawer({ isOpen, onClose }) {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
+    // Handle SQLite UTC datetime format (no 'Z' suffix)
+    const utcDateStr = dateString.includes('Z') || dateString.includes('+') 
+      ? dateString 
+      : dateString.replace(' ', 'T') + 'Z';
+    const date = new Date(utcDateStr);
+    if (isNaN(date.getTime())) return 'Invalid date';
     return date.toLocaleString('en-US', {
+      timeZone: 'America/Chicago',
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -47,8 +53,13 @@ export default function ShiftHistoryDrawer({ isOpen, onClose }) {
 
   const formatDuration = (startTime, endTime) => {
     if (!startTime || !endTime) return 'N/A';
-    const start = new Date(startTime);
-    const end = new Date(endTime);
+    // Handle SQLite UTC datetime format
+    const parseDate = (d) => {
+      const utc = d.includes('Z') || d.includes('+') ? d : d.replace(' ', 'T') + 'Z';
+      return new Date(utc);
+    };
+    const start = parseDate(startTime);
+    const end = parseDate(endTime);
     const durationMs = end - start;
     const hours = Math.floor(durationMs / (1000 * 60 * 60));
     const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
