@@ -14,6 +14,7 @@ import {
     validateWebSocketToken
 } from './auth.js';
 import { ValidationError, Validators } from './validators.js';
+import { handleUnloadRequest } from './unload.js';
 
 /**
  * Durable Object for WebSocket Connection Management
@@ -211,6 +212,14 @@ export default {
       if (path.startsWith('/api/')) {
         await validateApiKey(request, env);
         await checkRateLimit(env, clientIP, path);
+      }
+      
+      // Unload module - feature flagged
+      if (path.startsWith('/api/unload')) {
+        if (env.ENABLE_UNLOAD_MODULE !== 'true') {
+          return jsonResponse({ error: 'Unload module not enabled' }, corsHeaders, 404);
+        }
+        return await handleUnloadRequest(request, env, corsHeaders);
       }
       
       if (path.startsWith('/api/cars')) {
