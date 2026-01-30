@@ -85,7 +85,7 @@ function Header({ theme, onToggleTheme, currentShift = null, activeUsers = 0, on
           )}
           {unloadEnabled && (
             <a
-              href="#/unload"
+              href="/unload"
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-emerald-600/80 hover:bg-emerald-500 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400"
               title="Door Board"
             >

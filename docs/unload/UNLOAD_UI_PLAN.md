@@ -66,20 +66,24 @@ React Router can be added later once Unload is stable and the benefit of clean U
 
 ```env
 # .env / Cloudflare Pages env
-VITE_ENABLE_UNLOAD=false
+VITE_ENABLE_UNLOAD_MODULE=false
 ```
 
 ### 3.2 Frontend Check
 
 ```jsx
-// src/config/features.js
-export const FEATURES = {
-  unload: import.meta.env.VITE_ENABLE_UNLOAD === 'true',
+// src/App.jsx
+const isUnloadEnabled = () => {
+  try {
+    return import.meta.env.VITE_ENABLE_UNLOAD_MODULE === 'true';
+  } catch {
+    return false;
+  }
 };
 
-// Usage in nav
-{FEATURES.unload && (
-  <NavLink to="/unload">Unload</NavLink>
+// Usage in nav (Header.jsx)
+{unloadEnabled && (
+  <a href="/unload">Unload</a>
 )}
 
 // Route guard
