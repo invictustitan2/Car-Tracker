@@ -352,12 +352,28 @@ async function handleVisitAction(visitId, request, db, json) {
     return json({ error: 'Visit not found' }, 404);
   }
   
-  if (visit.status === 'DEPARTED') {
-    throw new ValidationError('Cannot perform actions on departed visit', 'status');
+  // Idempotency: already departed → no-op (safe for double-taps)
+  if (visit.status === 'DEPARTED' && validAction !== 'NOTE') {
+    return json({
+      success: true,
+      idempotent: true,
+      visit: {
+        id: visit.id,
+        doorNumber: visit.door_number,
+        trailerNumber: visit.trailer_number,
+        initialPercent: visit.initial_percent,
+        remainingPercent: visit.remaining_percent,
+        status: visit.status,
+        updatedAt: visit.updated_at,
+      },
+      message: 'Visit already departed',
+    });
   }
   
   let eventPayload = {};
   let updates = { updated_at: "datetime('now')" };
+  let useBatch = false;
+  let batchStatements = [];
   
   switch (validAction) {
     case 'START': {
@@ -388,6 +404,23 @@ async function handleVisitAction(visitId, request, db, json) {
     }
     
     case 'FINISH': {
+      // Idempotency: already completed → no-op
+      if (visit.status === 'COMPLETED') {
+        return json({
+          success: true,
+          idempotent: true,
+          visit: {
+            id: visit.id,
+            doorNumber: visit.door_number,
+            trailerNumber: visit.trailer_number,
+            initialPercent: visit.initial_percent,
+            remainingPercent: visit.remaining_percent,
+            status: visit.status,
+            updatedAt: visit.updated_at,
+          },
+          message: 'Visit already completed',
+        });
+      }
       updates.status = 'COMPLETED';
       updates.remaining_percent = 0;
       updates.completed_at = "datetime('now')";
@@ -400,14 +433,9 @@ async function handleVisitAction(visitId, request, db, json) {
       updates.departed_at = "datetime('now')";
       eventPayload = { oldStatus: visit.status, newStatus: 'DEPARTED' };
       
-      // Clear door's active visit
+      // Use batch for atomicity: update visit + door + event together
+      useBatch = true;
       const nextDoorState = body.nextDoorState?.toUpperCase() === 'PENDING' ? 'PENDING' : 'EMPTY';
-      await db.prepare(`
-        UPDATE unload_doors 
-        SET door_state = ?, active_visit_id = NULL, updated_at = datetime('now'), updated_by = ?
-        WHERE active_visit_id = ?
-      `).bind(nextDoorState, userId, visitId).run();
-      
       eventPayload.nextDoorState = nextDoorState;
       break;
     }
@@ -443,7 +471,54 @@ async function handleVisitAction(visitId, request, db, json) {
     }
   }
   
-  // Build update query
+  // For DEPART: use db.batch() for atomicity
+  if (useBatch && validAction === 'DEPART') {
+    const nextDoorState = eventPayload.nextDoorState;
+    
+    await db.batch([
+      // Update visit
+      db.prepare(`
+        UPDATE unload_visits 
+        SET status = 'DEPARTED', departed_at = datetime('now'), updated_at = datetime('now')
+        WHERE id = ?
+      `).bind(visitId),
+      // Clear door's active visit
+      db.prepare(`
+        UPDATE unload_doors 
+        SET door_state = ?, active_visit_id = NULL, updated_at = datetime('now'), updated_by = ?
+        WHERE active_visit_id = ?
+      `).bind(nextDoorState, userId, visitId),
+      // Log event
+      db.prepare(`
+        INSERT INTO unload_events (visit_id, shift_id, door_number, event_type, payload, actor)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(visitId, visit.shift_id, visit.door_number, 'DEPART', JSON.stringify(eventPayload), userId),
+    ]);
+    
+    // Get updated visit
+    const updatedVisit = await db.prepare(
+      'SELECT * FROM unload_visits WHERE id = ?'
+    ).bind(visitId).first();
+    
+    return json({
+      success: true,
+      visit: {
+        id: updatedVisit.id,
+        doorNumber: updatedVisit.door_number,
+        trailerNumber: updatedVisit.trailer_number,
+        initialPercent: updatedVisit.initial_percent,
+        remainingPercent: updatedVisit.remaining_percent,
+        status: updatedVisit.status,
+        updatedAt: updatedVisit.updated_at,
+      },
+      event: {
+        action: 'DEPART',
+        payload: eventPayload,
+      },
+    });
+  }
+  
+  // Build update query (for non-batch actions)
   if (Object.keys(updates).length > 0) {
     const setClauses = [];
     const values = [];
