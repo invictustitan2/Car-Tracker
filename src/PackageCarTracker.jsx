@@ -107,7 +107,7 @@ const STATUS_FILTERS = {
   },
 };
 
-export default function PackageCarTracker({ theme, onToggleTheme }) {
+export default function PackageCarTracker({ theme, onToggleTheme, unloadEnabled = false }) {
   const {
     cars,
     userId,
@@ -710,6 +710,7 @@ export default function PackageCarTracker({ theme, onToggleTheme }) {
         onShowStats={() => setIsStatsOpen(true)}
         onChangeUser={handleChangeUser}
         currentUserId={userId}
+        unloadEnabled={unloadEnabled}
       />
 
       {/* CSV Import Errors Panel */}

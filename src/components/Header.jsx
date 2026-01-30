@@ -1,8 +1,8 @@
-import { BarChart3, Clock, Cloud, CloudOff, History, LogOut, Moon, RefreshCw, Sun, Truck } from 'lucide-react';
+import { BarChart3, Clock, Cloud, CloudOff, History, LogOut, Moon, RefreshCw, Sun, Truck, DoorOpen } from 'lucide-react';
 import { memo } from 'react';
 import { useTracker } from '../context/TrackerContext';
 
-function Header({ theme, onToggleTheme, currentShift = null, activeUsers = 0, onShowShiftHistory, onShowStats, onChangeUser, currentUserId }) {
+function Header({ theme, onToggleTheme, currentShift = null, activeUsers = 0, onShowShiftHistory, onShowStats, onChangeUser, currentUserId, unloadEnabled = false }) {
 
 
   const { wsConnected, queueStatus } = useTracker();
@@ -82,6 +82,16 @@ function Header({ theme, onToggleTheme, currentShift = null, activeUsers = 0, on
               <LogOut size={14} />
               <span className="hidden sm:inline">{currentUserId}</span>
             </button>
+          )}
+          {unloadEnabled && (
+            <a
+              href="#/unload"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-emerald-600/80 hover:bg-emerald-500 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-400"
+              title="Door Board"
+            >
+              <DoorOpen size={14} />
+              <span className="hidden sm:inline">Unload</span>
+            </a>
           )}
           <button
             onClick={onShowShiftHistory}
